@@ -11,6 +11,7 @@ library(apeglm)
 library(EnhancedVolcano)
 library(magrittr)
 ```
+
 ```{r read counts}
 counts <- fread("../../data/novogene_raw_gene_count.xls") %>% as.data.frame
 
@@ -32,7 +33,6 @@ meta_data$index <- NULL
 
 meta_data
 ```
-
 
 
 ```{r DESeq2}
@@ -68,4 +68,38 @@ ggplot(pca_data, aes(x=PC1, y=PC2, color=condition, shape=cell, label=name)) +
 ggsave("../../results/pca/rna_teff_treg_PCA.pdf")
 ```
 
+```{r save batch corrected and normalized counts}
+vsd <- vst(dds)
 
+mm <- model.matrix(~condition + cell, colData(vsd))
+
+limma_counts <- limma::removeBatchEffect(assay(vsd), vsd$batch, design=mm)
+
+write.csv(limma_counts, "../../data/novogene_corrected_normed_gene_count.csv")
+```
+
+
+```{r get results}
+treg_dds <- dds[,c(1:2, 5:6, 9:10)]
+teff_dds <- dds[,c(3:4, 7:8, 11:12)]
+
+treg_res <- results(treg_dds, contrast=c("condition", "S", "A")) %>% as.data.table(TRUE)
+teff_res <- results(treg_dds, contrast=c("condition", "S", "A")) %>% as.data.table(TRUE)
+
+# Treg_SATB1 vs Teff_SATB1
+both_dds <- dds[, c(2,4,6,8,10,12)]
+both_res <- results(satb1_dds, contrast=c("cell", "Treg", "Teff")) %>% as.data.table(TRUE)
+```
+
+```{r save DEGs}
+limma_counts <- read.csv("../../data/novogene_corrected_normed_gene_count.csv")
+limma_counts
+
+treg_res_merged <- merge(treg_res, limma_counts, by.x="rn", by.y="X")
+teff_res_merged <- merge(teff_res, limma_counts, by.x="rn", by.y="X")
+both_res_merged <- merge(both_res, limma_counts, by.x="rn", by.y="X")
+
+write.csv(treg_res_merged, "../../data/deg/Treg_S_vs_A.csv")
+write.csv(teff_res_merged, "../../data/deg/Teff_S_vs_A.csv")
+write.csv(both_res_merged, "../../data/deg/Treg_S_vs_Teff_S.csv")
+```
