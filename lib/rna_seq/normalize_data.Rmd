@@ -7,37 +7,96 @@ library(ggplot2)
 library(ggrepel)
 library(pheatmap)
 library(umap)
-library(apeglm)
-library(EnhancedVolcano)
+#library(apeglm)
+#library(EnhancedVolcano)
 library(magrittr)
 ```
 
-```{r read counts}
+```{r}
+generate_metadata <- function(counts) {
+  meta_data <- data.frame( index = colnames(counts) )
+  rownames(meta_data) <- meta_data$index
+  
+  meta_data$condition <- as.factor(substr(meta_data$index, 6, 6))
+  meta_data$batch <- as.factor(substr(meta_data$index, 8, 9)) 
+  meta_data$cell <- as.factor(substr(meta_data$index, 1, 4))
+  # meta_data$combined <- paste0(meta_data$cell, "_", meta_data$condition)
+  
+  meta_data$index <- NULL
+  
+  return(meta_data)
+}
+```
+
+
+```{r}
 counts <- fread("../../data/novogene_raw_gene_count.xls") %>% as.data.frame
 
 rownames(counts) <- counts$gene_id
 
-# only AAVS1 and SATB1 cols
-counts <- counts[c(2:3, 6:7, 10:11, 14:15, 18:19, 22:23)]
-counts
+for (i in 1:ncol(counts)) {
+  message(paste0(i, " ", colnames(counts)[i]))
+}
 
-# generate metadata for DESeq2
-meta_data <- data.frame( index = colnames(counts) )
-rownames(meta_data) <- meta_data$index
+treg_a_ss <- c(2,10,18)
+treg_s_ss <- c(3,11,19)
+treg_h_ss <- c(4,12,20)
+treg_d_ss <- c(5,13,21)
 
-meta_data$condition <- as.factor(substr(meta_data$index, 6, 6))
-meta_data$batch <- as.factor(substr(meta_data$index, 8, 9)) 
-meta_data$cell <- as.factor(substr(meta_data$index, 1, 4))
+teff_a_ss <- c(6,14,22)
+teff_s_ss <- c(7,15,23)
+teff_h_ss <- c(8,16,24)
+teff_d_ss <- c(9,17,25)
+```
 
-meta_data$index <- NULL
+```{r DESeq2 with all samples from respective cells}
+treg_counts <- counts[c(treg_a_ss, treg_s_ss, treg_h_ss, treg_d_ss)]
+teff_counts <- counts[c(teff_a_ss, teff_s_ss, teff_h_ss, teff_d_ss)]
 
-meta_data
+treg_dds <- DESeqDataSetFromMatrix(countData = treg_counts,
+      colData = generate_metadata(treg_counts),
+      design = ~ batch + condition)
+treg_dds <- DESeq(treg_dds)
+
+teff_dds <- DESeqDataSetFromMatrix(countData = teff_counts,
+      colData = generate_metadata(teff_counts),
+      design = ~ batch + condition)
+teff_dds <- DESeq(teff_dds)
+
+treg_res <- results(treg_dds, contrast=c("condition", "S", "A")) %>% as.data.frame %>% as.data.table(TRUE)
+teff_res <- results(teff_dds, contrast=c("condition", "S", "A")) %>% as.data.frame %>% as.data.table(TRUE)
+
+limma_counts <- fread("../../data/novogene_raw_gene_count.xls")
+limma_counts
+
+treg_res$gene_id <- treg_res$rn
+teff_res$gene_id <- teff_res$rn
+
+treg_res$rn <- NULL
+teff_res$rn <- NULL
+
+treg_res_merged <- merge(treg_res, limma_counts, by="gene_id")
+teff_res_merged <- merge(teff_res, limma_counts, by="gene_id")
+
+write.csv(treg_res_merged, "../../data/deg/Treg_S_vs_A.csv")
+write.csv(teff_res_merged, "../../data/deg/Teff_S_vs_A.csv")
 ```
 
 
-```{r DESeq2}
+
+
+
+
+```{r generate vsd data for RNA-seq PCA}
+counts <- fread("../../data/novogene_raw_gene_count.xls") %>% as.data.frame
+
+rownames(counts) <- counts$gene_id
+
+counts <- counts[c(treg_a_ss, treg_s_ss, treg_h_ss, treg_d_ss, 
+                   teff_a_ss, teff_s_ss, teff_h_ss, teff_d_ss)]
+
 dds <- DESeqDataSetFromMatrix(countData = counts,
-                              colData = meta_data,
+                              colData = generate_metadata(counts),
                               design = ~ batch + cell + condition)
 dds <- DESeq(dds)
 ```
@@ -47,20 +106,17 @@ https://support.bioconductor.org/p/76099/
 ```{r PCA}
 vsd <- vst(dds)
 
-# without batch correction
-plotPCA(vsd, intgroup = c("condition"))
-
 mm <- model.matrix(~condition + cell, colData(vsd))
 
 # limma batch correct
 assay(vsd) <- limma::removeBatchEffect(assay(vsd), vsd$batch, design=mm)
-pca_data <- plotPCA(vsd, intgroup = c("condition", "cell"), returnData=TRUE)
+pca_data <- plotPCA(vsd, intgroup = c("condition", "cell"), returnData=TRUE) %>% as.data.table
 pca_data
 
 percentVar <- round(100 * attr(pca_data, "percentVar"))
 percentVar
 
-ggplot(pca_data, aes(x=PC1, y=PC2, color=condition, shape=cell, label=name)) +
+ggplot(pca_data[condition %in% c("A", "S")], aes(x=PC1, y=PC2, color=condition, shape=cell, label=name)) +
   geom_point(size=2) +
   labs(x=paste0("PC1: ", percentVar[1], "% variance"), y=paste0("PC2: ", percentVar[2], "% variance")) +
   geom_text_repel(size=3.5)
@@ -76,30 +132,4 @@ mm <- model.matrix(~condition + cell, colData(vsd))
 limma_counts <- limma::removeBatchEffect(assay(vsd), vsd$batch, design=mm)
 
 write.csv(limma_counts, "../../data/novogene_corrected_normed_gene_count.csv")
-```
-
-
-```{r get results}
-treg_dds <- dds[,c(1:2, 5:6, 9:10)]
-teff_dds <- dds[,c(3:4, 7:8, 11:12)]
-
-treg_res <- results(treg_dds, contrast=c("condition", "S", "A")) %>% as.data.table(TRUE)
-teff_res <- results(treg_dds, contrast=c("condition", "S", "A")) %>% as.data.table(TRUE)
-
-# Treg_SATB1 vs Teff_SATB1
-both_dds <- dds[, c(2,4,6,8,10,12)]
-both_res <- results(satb1_dds, contrast=c("cell", "Treg", "Teff")) %>% as.data.table(TRUE)
-```
-
-```{r save DEGs}
-limma_counts <- read.csv("../../data/novogene_corrected_normed_gene_count.csv")
-limma_counts
-
-treg_res_merged <- merge(treg_res, limma_counts, by.x="rn", by.y="X")
-teff_res_merged <- merge(teff_res, limma_counts, by.x="rn", by.y="X")
-both_res_merged <- merge(both_res, limma_counts, by.x="rn", by.y="X")
-
-write.csv(treg_res_merged, "../../data/deg/Treg_S_vs_A.csv")
-write.csv(teff_res_merged, "../../data/deg/Teff_S_vs_A.csv")
-write.csv(both_res_merged, "../../data/deg/Treg_S_vs_Teff_S.csv")
 ```
