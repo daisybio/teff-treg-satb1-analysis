@@ -48,6 +48,7 @@ atac_dt
 rna_dt
 ```
 
+# Get transcription start sites (tss) of the DEGs
 ```{r}
 library(biomaRt)
 mart <- useMart(biomart="ENSEMBL_MART_ENSEMBL", host="grch37.ensembl.org", path="/biomart/martservice", dataset="hsapiens_gene_ensembl")
@@ -56,8 +57,7 @@ tss_dt <- getBM(attributes=c("ensembl_gene_id","chromosome_name","transcription_
   filters = 'ensembl_gene_id', values = rna_dt$gene_id, mart = mart) %>%
   as.data.table()
 
-tss_dt <- tss_dt[, .(ensembl_gene_id,
-                     tss=transcription_start_site)]
+tss_dt <- tss_dt[, .(ensembl_gene_id, tss=transcription_start_site)]
 tss_dt
 
 rna_dt <- merge(rna_dt, tss_dt, by.x="gene_id", by.y="ensembl_gene_id", all=F)
@@ -65,35 +65,35 @@ rna_dt
 ```
 
 ```{r}
-get_close_peaks <- function(gene_id, chr, tss, window_size=100000) {
-  
+# Get overlapping peaks for given gene
+get_overlapping_peaks <- function(gene_id, chr, tss, window_size=10000) {
+  # finds overlaps 
   overlaps <- atac_dt[gene_chr == chr & tss-window_size <= peak_end & peak_start <= tss+window_size]
   
   overlaps[, overlap_gene_id := gene_id]
-  overlaps[, overlap_distance := ifelse(tss <= peak_end & peak_start <= tss, 0,    
-                                        ifelse(peak_end < tss, peak_end-tss, peak_start-tss))]  # may be possible to simplify
   
+  # calculates overlap distance
+  overlaps[, overlap_distance := ifelse(tss <= peak_end & peak_start <= tss, 0,    
+                                        ifelse(peak_end < tss, peak_end-tss, peak_start-tss))]
   return(overlaps)
 }
 
+# Get overlapping peaks for all DEGs
 overlap_calc <- function(window_size=100000) {
-  
+  # List of data tables (each DEG has a datatable with their overlaping atac peaks)
   overlaps <- list()
-    
+  
   for (i in 1:nrow(rna_dt)) {
-    
     genes <- rna_dt
-    
-    val <- get_close_peaks(genes[i, gene_id], genes[i, gene_chr], genes[i, tss], window_size=window_size)
+    val <- get_overlapping_peaks(genes[i, gene_id], genes[i, gene_chr], genes[i, tss], window_size=window_size)
     val$gene_log2FoldChange <- genes[i, log2FoldChange]
     overlaps <- append(overlaps, list(val))
   }
-  
   overlaps_dt <- rbindlist(overlaps)
   return(overlaps_dt)
 }
 
-overlaps_dt <- overlap_calc(10000)
+overlaps_dt <- get_overlapping_peaks(10000)
 ```
 
 ```{r}
