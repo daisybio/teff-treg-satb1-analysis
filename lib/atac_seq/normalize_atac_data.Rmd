@@ -1,0 +1,37 @@
+```{r}
+library(DESeq2)
+library(data.table) 
+library(tidyr)
+```
+
+# Used to generate atac peak counts 
+# macs2 callpeak -t AAVS1/bams/*.bam SATB1/bams/*.bam --nomodel --keep-dup=all -f BAMPE -n atac_counts outdir atac_counts
+```{r}
+treg_counts <- fread("../../data/atac/treg_atac_counts.bed")
+teff_counts <- fread("../../data/atac/teff_atac_counts.bed")
+
+colnames(treg_counts) <- c("chr", "start", "end", "Treg_AAVS1_400", "Treg_AAVS1_324", "Treg_AAVS1_348", "Treg_SATB1_400", "Treg_SATB1_324", "Treg_SATB1_348")
+colnames(teff_counts) <- c("chr", "start", "end", "Teff_AAVS1_400", "Teff_AAVS1_324", "Teff_AAVS1_348", "Teff_SATB1_400", "Teff_SATB1_324", "Teff_SATB1_348")
+
+treg_counts <- unite(treg_counts, col = region, chr, start, end,)
+teff_counts <- unite(teff_counts, col = region, chr, start, end,)
+
+rownames(treg_counts) <- treg_counts$region
+rownames(teff_counts) <- teff_counts$region
+
+treg_counts <- treg_counts[, 2:7]
+teff_counts <- teff_counts[, 2:7]
+
+treg_counts
+teff_counts
+```
+
+
+```{r}
+dds <- DESeqDataSetFromMatrix(counts, 
+                              metadata_df, 
+                              design = ~ batch + group)
+dds <- DESeq(dds)
+res <- results(dds, contrast=c("group", "S", "A"))
+```
+
