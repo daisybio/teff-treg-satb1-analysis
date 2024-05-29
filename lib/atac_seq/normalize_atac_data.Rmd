@@ -2,10 +2,13 @@
 library(DESeq2)
 library(data.table) 
 library(tidyr)
+library(ggplot2)
+library(ggrepel)
 ```
 
 # Used to generate atac peak counts 
 # macs2 callpeak -t AAVS1/bams/*.bam SATB1/bams/*.bam --nomodel --keep-dup=all -f BAMPE -n atac_counts outdir atac_counts
+# featureCounts
 ```{r}
 treg_counts <- fread("../../data/atac/treg_atac_counts.bed")
 teff_counts <- fread("../../data/atac/teff_atac_counts.bed")
@@ -26,12 +29,87 @@ treg_counts
 teff_counts
 ```
 
+```{r}
+treg_metadata <- data.frame(
+  group = c(rep(c("A", "S"), each=3)),
+  batch = c(rep(c("400", "324", "348"), times=2))
+)
+teff_metadata <- data.frame(
+  group = c(rep(c("A", "S"), each=3)),
+  batch = c(rep(c("400", "324", "348"), times=2))
+)
+
+rownames(treg_metadata) <- colnames(treg_counts)
+rownames(teff_metadata) <- colnames(teff_counts)
+
+treg_metadata
+teff_metadata
+```
+
 
 ```{r}
-dds <- DESeqDataSetFromMatrix(counts, 
-                              metadata_df, 
-                              design = ~ batch + group)
-dds <- DESeq(dds)
-res <- results(dds, contrast=c("group", "S", "A"))
+treg_dds <- DESeqDataSetFromMatrix(treg_counts, 
+                                   treg_metadata, 
+                                   design = ~ batch + group)
+treg_dds <- DESeq(treg_dds)
+treg_res <- results(treg_dds, contrast=c("group", "S", "A"))
+
+
+teff_dds <- DESeqDataSetFromMatrix(teff_counts, 
+                                   teff_metadata, 
+                                   design = ~ batch + group)
+teff_dds <- DESeq(teff_dds)
+teff_res <- results(teff_dds, contrast=c("group", "S", "A"))
 ```
+
+```{r full counts}
+treg_counts <- fread("../../data/atac/treg_atac_counts.bed")[,4:9]
+teff_counts <- fread("../../data/atac/teff_atac_counts.bed")[,4:9]
+
+colnames(treg_counts) <- c("Treg_AAVS1_400",	"Treg_AAVS1_324",	"Treg_AAVS1_348",	"Treg_SATB1_400",	"Treg_SATB1_324", "Treg_SATB1_348")
+colnames(teff_counts) <- c("Teff_AAVS1_400",	"Teff_AAVS1_324",	"Teff_AAVS1_348",	"Teff_SATB1_400",	"Teff_SATB1_324", "Teff_SATB1_348")
+
+treg_counts
+teff_counts
+
+all_counts <- cbind(treg_counts, teff_counts)
+all_counts
+
+meta_data <- data.frame(
+  condition = c(rep(c("A", "S", "A", "S"), each=3)),
+  batch = c(rep(c("400", "324", "348"), times=4)),
+  cell = c(rep(c("Treg", "Teff"), each=6))
+)
+rownames(meta_data) <- colnames(all_counts)
+meta_data
+```
+
+```{r}
+dds <- DESeqDataSetFromMatrix(countData = all_counts,
+                              colData = meta_data,
+                              design = ~ batch + cell + condition)
+dds <- DESeq(dds)
+```
+
+```{r PCA}
+vsd <- vst(dds)
+
+mm <- model.matrix(~condition + cell, colData(vsd))
+
+# limma batch correction
+assay(vsd) <- limma::removeBatchEffect(assay(vsd), vsd$batch, design=mm)
+pca_data <- plotPCA(vsd, intgroup = c("condition", "cell"), returnData=TRUE)
+pca_data
+
+percentVar <- round(100 * attr(pca_data, "percentVar"))
+percentVar
+
+ggplot(pca_data, aes(x=PC1, y=PC2, color=condition, shape=cell, label=name)) +
+  geom_point(size=2) +
+  labs(x=paste0("PC1: ", percentVar[1], "% variance"), y=paste0("PC2: ", percentVar[2], "% variance")) +
+  geom_text_repel(size=3.5)
+
+ggsave("../../results/pca/atac_teff_treg_PCA.pdf")
+```
+
 
