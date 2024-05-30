@@ -39,7 +39,7 @@ atac_dt
 atac_dt[, peak_start := as.numeric(peak_start)]
 atac_dt[, peak_end := as.numeric(peak_end)]
 
-atac_dt <- atac_dt[padj<0.05 & abs(log2FoldChange)>.5]  
+atac_dt <- atac_dt[padj<0.05 & abs(log2FoldChange)>.5]
 rna_dt <- rna_dt[padj<0.05 & abs(log2FoldChange)>.5]    
 
 rna_dt <- rna_dt[baseMean > 50]
@@ -98,19 +98,11 @@ overlaps_dt
 ```
 
 ```{r}
-ggplot(overlaps_dt, aes(log2FoldChange, gene_log2FoldChange)) +
-  geom_point()
-
-ggplot(overlaps_dt, aes(overlap_distance)) +
-  geom_histogram()
-
-cor(overlaps_dt$log2FoldChange, overlaps_dt$gene_log2FoldChange, method = "spearman")
-```
-
-```{r}
 overlaps_dt <- merge(overlaps_dt, unique(rna_dt[, c(1:22)]), by.x="overlap_gene_id", by.y="gene_id", all=F)
 overlaps_dt
 ```
+
+
 
 ```{r}
 filtered_dt <- overlaps_dt[, c(1,3:10,12:18,20:26,35:40)]
@@ -120,7 +112,7 @@ names(filtered_dt) <- c("overlap_gene_id", "peak_start", "peak_end",
                         "Treg_AAVS1_400", "Treg_AAVS1_324", "Treg_AAVS1_348", "Treg_SATB1_400", "Treg_SATB1_324", "Treg_SATB1_348",
                         "overlap_distance",
                         "gene_baseMean", "gene_log2FoldChange", "gene_lfcSE", "gene_stat", "gene_pvalue", "gene_padj", "gene_name",
-                        "Treg_A719_1", "Treg_S719_2", "Treg_A720_9", "Treg_S720_10", "Treg_A721_17", "Treg_S721_18")
+                        "Treg_A719_1", "Treg_A720_9", "Treg_A721_17", "Treg_S719_2", "Treg_S720_10", "Treg_S721_18")
 filtered_dt
 write.table(filtered_dt, file = "../../data/combined/treg_combined.csv",
             sep = "\t", row.names = F)
@@ -134,7 +126,7 @@ names(filtered_dt) <- c("overlap_gene_id", "peak_start", "peak_end",
                         "Teff_AAVS1_400", "Teff_AAVS1_324", "Teff_AAVS1_348", "Teff_SATB1_400", "Teff_SATB1_324", "Teff_SATB1_348",
                         "overlap_distance",
                         "gene_baseMean", "gene_log2FoldChange", "gene_lfcSE", "gene_stat", "gene_pvalue", "gene_padj", "gene_name",
-                        "Teff_A719_5", "Teff_S719_6", "Teff_A720_13", "Teff_S720_14", "Teff_A721_21", "Teff_S721_22")
+                        "Teff_A719_5", "Teff_A720_13", "Teff_A721_21", "Teff_S719_6", "Teff_S720_14", "Teff_S721_22")
 filtered_dt
 write.table(filtered_dt, file = "../../data/combined/teff_combined.csv",
             sep = "\t", row.names = F)

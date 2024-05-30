@@ -18,10 +18,12 @@ scale_matrix <- function(mat) {
 
 combined_dt <- fread("../../data/combined/treg_combined.csv")
 combined_dt
+colnames(combined_dt)
 
 combined_dt <- combined_dt[, overlap_distance:=min(abs(overlap_distance)), by=eval(names(combined_dt)[c(1:15,17:29)])]
 combined_dt <- unique(combined_dt)
 combined_dt
+colnames(combined_dt)
 
 gene_count_mat <- as.matrix(combined_dt[, c(1, 10:15)], rownames = "overlap_gene_id")
 atac_count_mat <- as.matrix(combined_dt[, c(1, 24:29)], rownames = "overlap_gene_id")
@@ -40,16 +42,46 @@ combined_dt
 ```
 
 ```{r}
-filtered_dt <- combined_dt
+filtered_dt <- combined_dt[abs(atac_log2FoldChange) >= 0.5 & abs(gene_log2FoldChange) >= 0.5 & abs(overlap_distance) <= 10000]
 
 # Aggregate peaks if there are multiple overlaps with one gene
 filtered_dt <- filtered_dt[, lapply(.SD, mean), by = c("overlap_gene_id"), .SDcols = c(5, 10:15)]
-filtered_dt <- merge(filtered_dt, combined_dt[, c(1, 18, 23:29)]) 
+filtered_dt <- merge(filtered_dt, unique(combined_dt[, c(1, 18, 23:29)])) 
 
 filtered_dt
 ```
 
 ```{r}
+filtered_dt[, atac_regulation := as.factor(ifelse(atac_log2FoldChange<0, "CLOSED", "OPEN"))]
+filtered_dt[, gene_regulation := as.factor(ifelse(gene_log2FoldChange<0, "DOWN", "UP"))]
 
+#filtered_dt <- filtered_dt[sign(atac_log2FoldChange) == sign(gene_log2FoldChange)]
+
+gene_mat <- as.matrix(filtered_dt[, c(10, 11:16)], rownames = "gene_name")
+atac_mat <- as.matrix(filtered_dt[, c(10, 3:8)], rownames = "gene_name")
+gene_reg <- as.matrix(filtered_dt[, c(10, 9)], rownames = "gene_name")
+atac_reg <- as.matrix(filtered_dt[, c(10, 2)], rownames = "gene_name")
+
+row_annotation = rowAnnotation(gene_regulation = gene_reg , atac_regulation = atac_reg,
+                               col = list(gene_regulation = c("DOWN"="lightblue", "UP"="orange"),
+                               atac_regulation = c("CLOSED"="lightgreen", "OPEN"="maroon")))
+
+gene_heatmap = Heatmap(gene_mat, name = "gene", row_km = 2, column_km = 0, column_order = c(1,3,5,2,4,6))
+gene_heatmap = Heatmap(gene_mat, name = "gene", row_km = 2, column_km = 0)
+atac_heatmap = Heatmap(atac_mat, name = "atac", column_km = 0, cluster_columns = F)
+
+color_gene = colorRamp2(c(-2, 0, 2), c("lightblue", "white", "orange"))
+color_atac = colorRamp2(c(-2, 0, 2), c("green", "white", "maroon"))
+
+gene_log2_heatmap = Heatmap(gene_reg, name = "gene_log2fold", col = color_gene, show_row_names = F)
+atac_log2_heatmap = Heatmap(atac_reg, name = "atac_log2fold", col = color_atac, show_row_names = F)
+
+png(file = "../../results/combined/treg_combined_heatmap.png", width = 700*2, height = 1400*2, units = "px", res = 125*2)
+
+gene_heatmap + atac_heatmap +
+gene_log2_heatmap + atac_log2_heatmap +
+rowAnnotation(labels = anno_text(filtered_dt$gene_name, gp = gpar(fontsize = 5)))
+
+dev.off()
 ```
 
