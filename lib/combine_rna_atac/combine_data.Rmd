@@ -4,6 +4,7 @@ library(readxl)
 library(magrittr)
 library(tidyr)
 library(ggplot2)
+library(biomaRt)
 ```
 
 # Load Treg ATAC-seq and RNA-seq data
@@ -50,7 +51,6 @@ rna_dt
 
 # Get transcription start sites (tss) of the DEGs
 ```{r}
-library(biomaRt)
 mart <- useMart(biomart="ENSEMBL_MART_ENSEMBL", host="grch37.ensembl.org", path="/biomart/martservice", dataset="hsapiens_gene_ensembl")
 
 tss_dt <- getBM(attributes=c("ensembl_gene_id","chromosome_name","transcription_start_site", "transcript_start", "transcript_end"), 
@@ -93,7 +93,8 @@ overlap_calc <- function(window_size=100000) {
   return(overlaps_dt)
 }
 
-overlaps_dt <- get_overlapping_peaks(10000)
+overlaps_dt <- overlap_calc(10000)
+overlaps_dt
 ```
 
 ```{r}
@@ -104,17 +105,15 @@ ggplot(overlaps_dt, aes(overlap_distance)) +
   geom_histogram()
 
 cor(overlaps_dt$log2FoldChange, overlaps_dt$gene_log2FoldChange, method = "spearman")
-
-
 ```
 
 ```{r}
-overlaps_dt <- merge(overlaps_dt, unique(rna_dt[, c(1:23)]), by.x="overlap_gene_id", by.y="gene_id", all=F)
+overlaps_dt <- merge(overlaps_dt, unique(rna_dt[, c(1:22)]), by.x="overlap_gene_id", by.y="gene_id", all=F)
 overlaps_dt
 ```
 
 ```{r}
-filtered_dt <- overlaps_dt[, c(1,3:10,12:18,21:27,36:41)]
+filtered_dt <- overlaps_dt[, c(1,3:10,12:18,20:26,35:40)]
 
 names(filtered_dt) <- c("overlap_gene_id", "peak_start", "peak_end", 
                         "atac_baseMean", "atac_log2FoldChange", "atac_lfcSE", "atac_stat", "atac_pvalue", "atac_padj",
@@ -123,12 +122,12 @@ names(filtered_dt) <- c("overlap_gene_id", "peak_start", "peak_end",
                         "gene_baseMean", "gene_log2FoldChange", "gene_lfcSE", "gene_stat", "gene_pvalue", "gene_padj", "gene_name",
                         "Treg_A719_1", "Treg_S719_2", "Treg_A720_9", "Treg_S720_10", "Treg_A721_17", "Treg_S721_18")
 filtered_dt
-write.table(filtered_dt, file = "./data/treg_specg_allp.csv",
+write.table(filtered_dt, file = "../../data/combined/treg_combined.csv",
             sep = "\t", row.names = F)
 ```
 
 ```{r}
-filtered_dt <- overlaps_dt[, c(1,3:10,12:18,21:27,36:41)]
+filtered_dt <- overlaps_dt[, c(1,3:10,12:18,20:26,35:40)]
 
 names(filtered_dt) <- c("overlap_gene_id", "peak_start", "peak_end", 
                         "atac_baseMean", "atac_log2FoldChange", "atac_lfcSE", "atac_stat", "atac_pvalue", "atac_padj",
@@ -137,7 +136,7 @@ names(filtered_dt) <- c("overlap_gene_id", "peak_start", "peak_end",
                         "gene_baseMean", "gene_log2FoldChange", "gene_lfcSE", "gene_stat", "gene_pvalue", "gene_padj", "gene_name",
                         "Teff_A719_5", "Teff_S719_6", "Teff_A720_13", "Teff_S720_14", "Teff_A721_21", "Teff_S721_22")
 filtered_dt
-write.table(filtered_dt, file = "./data/teff_specg_allp.csv",
+write.table(filtered_dt, file = "../../data/combined/teff_combined.csv",
             sep = "\t", row.names = F)
 ```
 
