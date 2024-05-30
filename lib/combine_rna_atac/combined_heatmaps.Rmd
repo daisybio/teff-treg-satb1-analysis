@@ -1,0 +1,55 @@
+```{r}
+library(data.table)
+library(ComplexHeatmap)
+library(circlize)       # Used for colorRamp2
+```
+
+
+
+```{r}
+# function to calculate z-scores
+scale_matrix <- function(mat) {
+  rm  <- rowMeans(mat)
+  mat <- sweep(mat, 1, rm)
+  sx  <- apply(mat, 1, sd)
+  mat <- sweep(mat, 1, sx, "/")
+  return(mat)
+}
+
+combined_dt <- fread("../../data/combined/treg_combined.csv")
+combined_dt
+
+combined_dt <- combined_dt[, overlap_distance:=min(abs(overlap_distance)), by=eval(names(combined_dt)[c(1:15,17:29)])]
+combined_dt <- unique(combined_dt)
+combined_dt
+
+gene_count_mat <- as.matrix(combined_dt[, c(1, 10:15)], rownames = "overlap_gene_id")
+atac_count_mat <- as.matrix(combined_dt[, c(1, 24:29)], rownames = "overlap_gene_id")
+
+gene_count_mat
+atac_count_mat
+
+# calculate z-scores for atac and gene counts
+as.data.table(scale_matrix(gene_count_mat))
+as.data.table(scale_matrix(atac_count_mat))
+
+combined_dt[,c(10:15) := as.data.table(scale_matrix(gene_count_mat))]  
+combined_dt[,c(24:29) := as.data.table(scale_matrix(atac_count_mat))]
+
+combined_dt
+```
+
+```{r}
+filtered_dt <- combined_dt
+
+# Aggregate peaks if there are multiple overlaps with one gene
+filtered_dt <- filtered_dt[, lapply(.SD, mean), by = c("overlap_gene_id"), .SDcols = c(5, 10:15)]
+filtered_dt <- merge(filtered_dt, combined_dt[, c(1, 18, 23:29)]) 
+
+filtered_dt
+```
+
+```{r}
+
+```
+
