@@ -107,7 +107,8 @@ percentVar
 ggplot(pca_data, aes(x=PC1, y=PC2, color=condition, shape=cell, label=name)) +
   geom_point(size=2) +
   labs(x=paste0("PC1: ", percentVar[1], "% variance"), y=paste0("PC2: ", percentVar[2], "% variance")) +
-  geom_text_repel(size=3.5)
+  geom_text_repel(size=3.5) +
+  theme_light()
 
 ggsave("../../results/pca/atac_teff_treg_PCA.pdf")
 ```
