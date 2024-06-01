@@ -80,6 +80,19 @@ write.csv(treg_res_merged, "../../data/deg/Treg_S_vs_A.csv")
 write.csv(teff_res_merged, "../../data/deg/Teff_S_vs_A.csv")
 ```
 
+```{r DESeq for Treg_SATB1 vs Teff_SATB1}
+vs_counts <- counts[c(treg_s_ss, teff_s_ss)]
+
+vs_dds <- DESeqDataSetFromMatrix(countData = vs_counts,
+                              colData = generate_metadata(vs_counts)[c(2,3)],
+                              design = ~ batch + cell)
+vs_dds <- DESeq(vs_dds)
+
+vs_res <- results(vs_dds, contrast=c("cell", "Treg", "Teff")) %>% as.data.frame %>% as.data.table(TRUE)
+write.csv(vs_res, "../../data/deg/TregS_vs_TeffS.csv")
+```
+
+
 
 
 
