@@ -1,0 +1,27 @@
+
+```{r}
+library(data.table)
+library(ggplot2)
+library(ggrepel)
+
+library(readxl)
+library(magrittr)
+```
+
+```{r}
+merged_data <- read_excel("../../data/atac/Combined_Teff_Treg.xlsx") %>% as.data.table
+```
+
+```{r}
+merged_data <- merged_data[Treg_padj <= 0.05 & Treg_baseMean > 15,]
+merged_data <- merged_data[Teff_padj <= 0.05 & Teff_baseMean > 15,]
+ 
+merged_data
+```
+
+```{r}
+ggplot(merged_data, aes(x=Treg_log2FoldChange, y=Teff_log2FoldChange, color=-log10(Teff_padj * Treg_padj), size=-log10(Teff_padj * Treg_padj), alpha=0.01)) +
+  geom_point() + 
+  theme_light()
+```
+

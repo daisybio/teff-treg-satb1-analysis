@@ -1,0 +1,41 @@
+
+```{r}
+library(data.table)
+library(ggplot2)
+library(ggrepel)
+
+library(readxl)
+library(magrittr)
+```
+
+```{r}
+treg <- fread("../../data/deg/Treg_S_vs_A.csv")
+teff <- fread("../../data/deg/Teff_S_vs_A.csv")
+```
+
+```{r}
+treg <- treg[padj <= 0.05 & baseMean > 15,]
+teff <- teff[padj <= 0.05 & baseMean > 15,]
+
+treg <- treg[, .(gene_id, log2FoldChange, padj, gene_name)]
+teff <- teff[, .(gene_id, log2FoldChange, padj, gene_name)]
+
+merged_data <- merge(treg, teff, by=c("gene_id", "gene_name"), suffixes=c("_treg", "_teff"), all.x = T, all.y = T)
+
+# merged_data[is.na(log2FoldChange_treg), log2FoldChange_treg := 0]
+# merged_data[is.na(log2FoldChange_teff), log2FoldChange_teff := 0]
+# merged_data[is.na(padj_treg), padj_treg := 1]
+# merged_data[is.na(padj_teff), padj_teff := 1]
+
+merged_data
+```
+
+```{r}
+ggplot(merged_data, aes(x=log2FoldChange_treg, y=log2FoldChange_teff, color=-log10(padj_treg*padj_teff), size=-log10(padj_treg*padj_teff), label=gene_name)) +
+  geom_point() + 
+  geom_text_repel(size=3.5, max.overlaps=11) +
+  xlim(-3, 3) +
+  ylim(-3, 3) + 
+  theme_light() 
+```
+
