@@ -1,0 +1,12 @@
+numpy
+math
+csv
+os
+pandas
+matplotlib
+seaborn
+ngs_toolkit
+openpyxl
+plotly
+jupyterlab>=3
+ipywidgets>=7.6
