@@ -2,6 +2,8 @@ This repository contains code and data supporting the publication:
 
 **SATB1 is a subset-specific regulator of JAK-STAT signaling and cellular effector functions in human Treg and CD4 effector T cells**  
 
+**Authors:** Saskia Kolb, Elizabeth D. Lochert, Leonie Diekmann, Linda Warmuth, Julia Ritter, Michael Weber, Markus Hoffmann, Markus List, Daniel Kotlarz, Dirk H. Busch, Christian Schmidl, Kathrin Schumann*  
+(*Corresponding author)  
 
 ### Repository Structure  
 
